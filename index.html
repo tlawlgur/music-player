@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>멀티 음악 플레이어</title>
+<style>
+:root{box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);--bg:#eaeff3;--card:#fff;--text:#14202b;--sub:#5a6b7a;--line:#cfd8e0;--acc:#0b7a75;--on:#fff;--err:#c62828}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0f1720;--card:#172230;--text:#e8eef4;--sub:#93a4b4;--line:#2a3a4a;--acc:#4fd1c5;--on:#06201e;--err:#ff8a80}}
+:root[data-theme="dark"]{--bg:#0f1720;--card:#172230;--text:#e8eef4;--sub:#93a4b4;--line:#2a3a4a;--acc:#4fd1c5;--on:#06201e;--err:#ff8a80}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*,*::before,*::after{box-sizing:inherit}
+body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 system-ui,-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif}
+main{max-width:860px;margin:0 auto;padding:20px 16px 48px}
+h1{font-size:24px;margin:8px 0 4px}
+.sub{color:var(--sub);margin:0 0 14px}
+.drop{display:block;border:2px dashed var(--line);border-radius:12px;padding:28px 12px;text-align:center;cursor:pointer;color:var(--sub);background:var(--card)}
+.drop:hover,.drop:focus-visible{border-color:var(--acc);color:var(--text);outline:0}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin:12px 0}
+.bar{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;margin:14px 0}
+button{font:inherit;border:1px solid var(--line);background:var(--card);color:var(--text);border-radius:8px;padding:8px 12px;cursor:pointer;min-height:40px}
+button:hover,button:focus-visible{border-color:var(--acc);outline:0}
+.pri{background:var(--acc);color:var(--on);border-color:var(--acc);font-weight:600}
+label{display:inline-flex;align-items:center;gap:6px;font-size:14px}
+input[type=range],input[type=checkbox]{accent-color:var(--acc)}
+input[type=range]{min-width:90px}
+input[type=checkbox]{width:18px;height:18px}
+summary{cursor:pointer;font-weight:600}
+#presets{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0}
+#presets button{min-height:34px;padding:4px 10px;font-size:14px}
+#eq{display:flex;justify-content:space-between;gap:4px;overflow-x:auto;padding-bottom:4px}
+.band{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:12px;color:var(--sub);min-width:34px}
+.band input[type=range]{writing-mode:vertical-lr;direction:rtl;height:110px;width:24px;min-width:0}
+.top,.row{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.top{justify-content:space-between;margin-bottom:8px}
+.name{overflow-wrap:anywhere}
+.row+.row{margin-top:8px}
+.seek{flex:1;min-width:140px}
+.tm{font-variant-numeric:tabular-nums;font-size:13px;color:var(--sub)}
+.x{padding:2px 9px;min-height:32px}
+.err{color:var(--err);font-size:13px;margin-bottom:6px}
+.seqOnly{display:none}
+body.seq .seqOnly{display:inline-flex}
+button[aria-pressed=true]{background:var(--acc);color:var(--on);border-color:var(--acc)}
+.card.on{border-color:var(--acc);box-shadow:0 0 0 1px var(--acc)}
+.mini{min-height:32px;padding:2px 8px;font-size:13px}
+select{font:inherit;border:1px solid var(--line);background:var(--card);color:var(--text);border-radius:8px;padding:6px;min-height:40px}
+.hint{font-size:13px;color:var(--sub);margin:0}
+.btns{display:inline-flex;flex-wrap:wrap;gap:4px}
+.bpm{width:84px;font:inherit;padding:6px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--text);min-height:32px}
+.yin{flex:1;min-width:200px;max-width:420px;font:inherit;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--text)}
+.yw{position:relative;width:100%;max-width:560px;aspect-ratio:16/9;min-height:200px;margin:6px 0}
+.yw iframe{position:absolute;inset:0;width:100%;height:100%;border:0;border-radius:8px}
+#ylist{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:12px}
+.num{width:72px;font:inherit;padding:4px 6px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--text);min-height:32px}
+.band .num{width:44px;height:auto;min-height:30px;padding:2px 0;font-size:12px;text-align:center;writing-mode:horizontal-tb;direction:ltr;-moz-appearance:textfield}
+.band .num::-webkit-inner-spin-button,.band .num::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+.band output{display:none}
+.go{width:84px}
+a.yl{color:var(--acc);font-size:13px}
+</style>
+</head>
+<body>
+<main>
+<h1>🎧 멀티 음악 플레이어</h1>
+<p class="sub">음악 파일을 여러 개 올린 뒤 “전체 재생”을 누르면 한꺼번에 겹쳐서 재생돼요. 트랙마다 볼륨, 속도, 반복을 따로 조절할 수 있어요.</p>
+<label id="drop" class="drop" tabindex="0">
+<input id="file" type="file" accept="audio/*,.mp3,.ogg" multiple hidden>
+🎵 여기를 눌러 파일을 고르거나, 파일을 끌어다 놓으세요 (mp3, ogg 등)
+</label>
+<div class="bar">
+<button id="playAll" class="pri">▶ 전체 재생</button>
+<button id="pauseAll">⏸ 전체 일시정지</button>
+<button id="syncAll">⏮ 시작점부터 동시에</button>
+<button id="stopAll">⏹ 전체 정지</button>
+<button id='prev' class='seqOnly'>⏮ 이전 곡</button>
+<button id='next' class='seqOnly'>⏭ 다음 곡</button>
+<button id='clear' class='mini'>🗑 목록 비우기</button>
+</div>
+<div class="bar">
+<button id='mode' aria-pressed='false'>▦ 재생 방식: 동시 재생</button>
+<button id='rep' aria-pressed='false'>🔁 전체 반복 꺼짐</button>
+<button id='shuf' class='seqOnly' aria-pressed='false'>🔀 셔플 꺼짐</button>
+<label>⏲ 종료 타이머 <select id='timer'><option value='0'>없음</option><option value='15'>15분 뒤</option><option value='30'>30분 뒤</option><option value='60'>1시간 뒤</option><option value='120'>2시간 뒤</option></select></label>
+</div>
+<div class='bar'>
+<label>전체 볼륨 <input id="mv" type="range" min="0" max="1" step="0.01" value="1"></label>
+<button id='mall' aria-pressed='false'>🔇 전체 음소거</button>
+<label>전체 속도 <input id="ms" type="range" min="0.25" max="3" step="any" value="1"> <b id="msv">1.00x</b></label>
+<span id='spp' class='btns'></span>
+<label><input id="pitch" type="checkbox" checked> 속도를 바꿔도 음높이 유지 <span class='hint'>(끄면 소리가 더 깨끗하지만 음이 높아지거나 낮아져요)</span></label>
+</div>
+<details class="card" open>
+<summary>🎚 이퀄라이저 <span class="sub">(합쳐진 전체 소리에 적용돼요)</span></summary>
+<div id="presets"></div>
+<div id="eq"></div>
+</details>
+<p class='hint'>단축키: 스페이스 재생/일시정지, ←/→ 5초 이동, ↑/↓ 전체 볼륨, M 음소거, R 전체 반복, N/P 다음·이전 곡(순서대로 재생일 때)</p>
+<p id='bmsg' class='hint'></p>
+<section id="list"></section>
+<p id="empty" class="sub">아직 올린 파일이 없어요.</p>
+<details class='card' open><summary>▶ YouTube 영상 동시 재생 (실험 기능)</summary>
+<p class='hint'>링크를 붙여넣고 추가하면 영상이 나란히 놓여요. 각 영상의 재생 버튼을 따로 눌러 여러 개를 동시에 틀 수 있어요. 영상은 숨길 수 없고, 이 소리에는 이퀄라이저·BPM 맞추기가 적용되지 않아요. 이 공유 페이지에서는 “오류 153”으로 재생이 막힐 수 있어요. 일반 웹사이트에 올려서 쓰면 대개 돼요.</p>
+<div class='bar'><input id='yurl' class='yin' placeholder='YouTube 링크 또는 퍼가기 코드 붙여넣기 (여러 개 가능)'><button id='yadd'>추가</button><button id='yplay'>▶ YouTube 전체 재생</button><button id='ypause'>⏸ YouTube 전체 일시정지</button></div>
+<p id='ymsg' class='hint'></p>
+<div id='ylist'></div></details>
+</main>
+<script>
+const $=s=>document.querySelector(s),tracks=[],FREQ=[31,62,125,250,500,1000,2000,4000,8000,16000];
+const PRE={'평평':[0,0,0,0,0,0,0,0,0,0],'저음 강화':[6,5,4,2,0,0,0,0,0,0],'보컬 선명':[-2,-2,-1,1,3,4,3,1,0,-1],'고음 강화':[0,0,0,0,0,1,3,4,5,6],'라우드니스':[5,3,0,-1,-1,0,1,3,4,5]};
+let ctx,bus,vol,fl=[],seq=false,repAll=false,shufOn=false,mm=false,cur=null;
+const T=s=>isFinite(s)?(s/60|0)+':'+String(s%60|0).padStart(2,'0'):'0:00';
+const eqIn=FREQ.map((f,i)=>{
+  const w=document.createElement('div');w.className='band';
+  w.innerHTML=`<output>0</output><input type="range" min="-12" max="12" step="0.5" value="0" aria-label="${f}Hz"><span>${f>=1000?f/1000+'k':f}</span>`;
+  const r=w.querySelector('input'),o=w.querySelector('output');
+  r.oninput=()=>{o.value=(r.value>0?'+':'')+r.value;if(fl[i])sm(fl[i].gain,+r.value)};
+  $('#eq').append(w);return r;
+});
+Object.entries(PRE).forEach(([n,v])=>{
+  const b=document.createElement('button');b.textContent=n;
+  b.onclick=()=>v.forEach((g,i)=>{eqIn[i].value=g;eqIn[i].oninput()});
+  $('#presets').append(b);
+});
+function init(){
+  if(ctx)return;
+  ctx=new(window.AudioContext||window.webkitAudioContext)({latencyHint:'playback'});
+  bus=ctx.createGain();let p=bus;
+  fl=FREQ.map((f,i)=>{
+    const b=ctx.createBiquadFilter();
+    b.type=i?i<9?'peaking':'highshelf':'lowshelf';
+    b.frequency.value=f;b.Q.value=1.1;b.gain.value=+eqIn[i].value;
+    p.connect(b);p=b;return b;
+  });
+  vol=ctx.createGain();vol.gain.value=+$('#mv').value;
+  const lim=ctx.createDynamicsCompressor();
+  lim.threshold.value=-2;lim.knee.value=0;lim.ratio.value=20;lim.attack.value=0.002;lim.release.value=0.12;
+  p.connect(vol);vol.connect(lim);lim.connect(ctx.destination);mvol();
+}
+const chk=()=>{$('#empty').hidden=!!tracks.length};
+function add(f){
+  init();
+  const u=URL.createObjectURL(f),a=new Audio(u),g=ctx.createGain(),pn=ctx.createStereoPanner();
+  a.preservesPitch=a.mozPreservesPitch=a.webkitPreservesPitch=$('#pitch').checked;
+  const src=ctx.createMediaElementSource(a);src.connect(g);const dry=ctx.createGain();g.connect(dry);dry.connect(pn);pn.connect(bus);
+  const el=document.createElement('article');el.className='card';
+  el.innerHTML=`<div class="top"><b class="name"></b><span class='btns'><button class='up mini' aria-label='위로'>▲</button><button class='dn mini' aria-label='아래로'>▼</button><button class="x" title="목록에서 삭제" aria-label="삭제">✕</button></span></div>
+<div class="row"><button class="pp" aria-label="재생 또는 일시정지">▶</button><button class="st" aria-label="정지">⏹</button><button class='bk mini' aria-label='10초 뒤로'>⏪ 10초</button><button class='fw mini' aria-label='10초 앞으로'>10초 ⏩</button><input class="seek" type="range" min="0" max="0" step="0.1" value="0" aria-label="재생 위치"><span class="tm">0:00 / 0:00</span><input class='go num' type='text' placeholder='이동 분:초' aria-label='이동할 위치'></div>
+<div class="row"><label>볼륨 <input class="vol" type="range" min="0" max="1" step="0.01" value="1"></label><label>속도 <input class="spd" type="range" min="0.25" max="3" step="any" value="1"> <b class="sv">1.00x</b></label><label><input class="lp" type="checkbox"> 🔁 한 곡 반복</label><label><input class="mu" type="checkbox"> 음소거</label><label><input class='so' type='checkbox'> 솔로</label><label title='소리를 왼쪽/오른쪽 스피커 중 어디로 보낼지 정해요'>좌우 위치 <span class='hint'>왼쪽</span><input class='pan' type='range' min='-1' max='1' step='0.01' value='0'><span class='hint'>오른쪽</span></label><button class='pc mini'>가운데로</button></div>
+<div class='row'><button class='ma mini'>A 지점</button><button class='mb mini'>B 지점</button><button class='mc mini'>구간 해제</button><button class='rs mini'>속도 1x로</button><span class='ab hint'></span></div>
+<div class='row'><label>BPM <input class='bpm' type='number' min='30' max='300' step='0.1' placeholder='모름'></label><button class='tap mini'>👆 박자에 맞춰 눌러 측정</button><button class='auto mini'>🔍 BPM 자동 측정</button><button class='h2 mini'>BPM ×2</button><button class='h1 mini'>BPM ÷2</button><button class='ref mini'>🎯 이 곡 템포에 다른 곡 맞추기</button><span class='eb hint'></span></div>
+<div class='row'><button class='cu mini'>📍 여기를 시작점으로</button><button class='cj mini'>시작점으로 이동</button><button class='nl mini'>⏪ 0.05초 늦추기</button><button class='nf mini'>0.05초 당기기 ⏩</button><span class='cl hint'></span></div>
+<div class='row'><label>🎵 키(음높이) <input class='key' type='range' min='-12' max='12' step='0.1' value='0'></label><button class='kr mini'>원래 키로</button><span class='hint'>±3반음 안쪽을 권장해요 (크게 바꾸면 소리가 울렁거려요)</span></div>`;
+  const q=s=>el.querySelector(s),pp=q('.pp'),sk=q('.seek'),tm=q('.tm'),vl=q('.vol'),sp=q('.spd'),mu=q('.mu');
+  q('.name').textContent=f.name;
+  const up=()=>{sk.value=a.currentTime;tm.textContent=T(a.currentTime)+' / '+T(a.duration)};
+  const so=q('.so'),lp=q('.lp');
+  const gv=()=>{sm(g.gain,mu.checked||(tracks.some(x=>x.so.checked)&&!so.checked)?0:+vl.value)};
+  so.onchange=()=>tracks.forEach(x=>x.gv());
+  q('.pan').oninput=e=>{sm(pn.pan,+e.target.value)};
+  q('.pc').onclick=()=>{const p=q('.pan');p.value=0;p.oninput({target:p})};
+  let jg=null;const key=q('.key');
+  const setKey=v=>{
+    if(!v){sm(dry.gain,1);if(jg)sm(jg.output.gain,0);return}
+    if(!jg){jg=Jungle(ctx);g.connect(jg.input);jg.output.gain.value=0;jg.output.connect(pn)}
+    jg.set(Math.pow(2,v/12));sm(dry.gain,0);sm(jg.output.gain,1);
+  };
+  key.oninput=()=>setKey(+key.value);
+  q('.kr').onclick=()=>{key.value=0;key.oninput()};
+  q('.rs').onclick=()=>{sp.value=1;sp.oninput()};
+  q('.bk').onclick=()=>{a.currentTime=Math.max(0,a.currentTime-10)};
+  q('.fw').onclick=()=>{a.currentTime+=10};
+  let A=null,B=null;const ab=q('.ab'),lb=()=>{ab.textContent=A==null?'구간 반복: 재생 중에 A, B 지점을 눌러 정해요':'A '+T(A)+(B==null?'':' ~ B '+T(B))};
+  q('.ma').onclick=()=>{A=a.currentTime;if(B!=null&&B<=A)B=null;lb()};
+  q('.mb').onclick=()=>{if(A==null)A=0;if(a.currentTime>A){B=a.currentTime;lb()}};
+  q('.mc').onclick=()=>{A=B=null;lb()};lb();
+  const bp=q('.bpm'),eb=()=>{const b=+bp.value;q('.eb').textContent=b>0?'지금 템포 '+(b*a.playbackRate).toFixed(1)+' BPM':'BPM을 입력하거나 탭으로 재 보세요'};
+  bp.oninput=eb;
+  let tp=[];
+  q('.tap').onclick=()=>{
+    const n=performance.now();
+    if(tp.length&&n-tp[tp.length-1]>2000)tp=[];
+    tp.push(n);if(tp.length>9)tp.shift();
+    if(tp.length>2){bp.value=(60000*(tp.length-1)/(n-tp[0])/a.playbackRate).toFixed(1);eb()}
+    else q('.eb').textContent='박자에 맞춰 계속 눌러 주세요 ('+tp.length+'번째)';
+  };
+  const mul=k=>{if(+bp.value){bp.value=(bp.value*k).toFixed(1);eb()}};
+  q('.h2').onclick=()=>mul(2);q('.h1').onclick=()=>mul(.5);
+  q('.ref').onclick=()=>syncTo(t);
+  let cue=0;const cl=q('.cl'),cs=()=>{cl.textContent='시작점 '+cue.toFixed(2)+'초'};cs();
+  q('.cu').onclick=()=>{cue=a.currentTime;cs()};
+  q('.cj').onclick=()=>{a.currentTime=cue};
+  q('.nl').onclick=()=>{a.currentTime=Math.max(0,a.currentTime-.05)};
+  q('.nf').onclick=()=>{a.currentTime+=.05};
+  let am=null;
+  q('.auto').onclick=()=>{
+    if(am){am.stop();return}
+    ctx.resume();if(a.paused)a.play();
+    const ee=q('.eb');ee.textContent='측정 준비 중… 15초 동안 재생돼요';
+    am=autoBpm(src,a,(s,N)=>{ee.textContent='측정 중… '+s+'/'+N+'초 (다시 누르면 취소)'},r=>{
+      am=null;
+      if(!r){ee.textContent='측정하지 못했어요. 소리가 또렷한 구간에서 다시 해 보세요.';return}
+      bp.value=r.toFixed(1);eb();ee.textContent+=' · 추정값이에요. 틀리면 ×2/÷2나 탭으로 고쳐요';
+    });
+  };
+  pp.onclick=()=>{ctx.resume();a.paused?a.play():a.pause()};
+  q('.st').onclick=()=>{a.pause();a.currentTime=0;up()};
+  sk.oninput=()=>{a.currentTime=+sk.value;up()};
+  vl.oninput=mu.onchange=gv;
+  sp.oninput=()=>{a.playbackRate=+sp.value;q('.sv').textContent=+(+sp.value).toFixed(3)+'x';eb()};
+  q('.lp').onchange=e=>{a.loop=e.target.checked};
+  a.onloadedmetadata=()=>{sk.max=a.duration;up()};
+  a.ontimeupdate=up;
+  const ui=()=>{pp.textContent=a.paused?'▶':'⏸';el.classList.toggle('on',!a.paused)};
+  a.onplay=()=>{ui();cur=t;if(seq)tracks.forEach(x=>{if(x!==t)x.a.pause()})};
+  a.onpause=ui;
+  a.onended=()=>{ui();if(seq)nav(1,t)};
+  a.onerror=()=>q('.top').insertAdjacentHTML('afterend','<div class="err">이 파일은 재생할 수 없어요. mp3나 ogg 같은 음악 파일인지 확인해 주세요.</div>');
+  const t={a,sp,so,lp,gv,el,bp,eb,cue:()=>cue};tracks.push(t);
+  t.ab=()=>{if(B!=null&&!a.paused&&a.currentTime>=B)a.currentTime=A};
+  q('.up').onclick=()=>moveT(t,-1);q('.dn').onclick=()=>moveT(t,1);
+  if(repAll&&!seq)lp.checked=a.loop=true;
+  gv();
+  q('.x').onclick=()=>{a.onerror=null;a.pause();URL.revokeObjectURL(u);g.disconnect();el.remove();tracks.splice(tracks.indexOf(t),1);if(cur===t)cur=null;tracks.forEach(x=>x.gv());chk()};
+  sp.value=$('#ms').value;sp.oninput();
+  pair(vl,100,0,'%');pair(sp,1,2,'배');pair(q('.pan'),100,0,'');pair(key,1,1,'반음');
+  q('.go').onkeydown=e=>{if(e.key==='Enter'){const v=parseT(e.target.value);if(v!=null){a.currentTime=v;up()}e.target.value=''}};
+  $('#list').append(el);chk();
+}
+const all=fn=>tracks.forEach(t=>fn(t.a));
+$('#playAll').onclick=()=>{init();ctx.resume();if(seq){const t=tracks.includes(cur)?cur:tracks[0];if(t&&t.a.paused)t.a.play()}else all(a=>a.play())};
+$('#pauseAll').onclick=()=>all(a=>a.pause());
+$('#syncAll').onclick=()=>{init();ctx.resume();if(seq){const t=tracks.includes(cur)?cur:tracks[0];if(t){t.a.currentTime=t.cue();t.a.play()}}else tracks.forEach(t=>{t.a.currentTime=t.cue();t.a.play()})};
+$('#stopAll').onclick=()=>all(a=>{a.pause();a.currentTime=0});
+$('#mv').oninput=()=>mvol();
+$('#ms').oninput=e=>{
+  $('#msv').textContent=(+e.target.value).toFixed(2)+'x';
+  tracks.forEach(t=>{t.sp.value=e.target.value;t.sp.oninput()});
+};
+$('#pitch').onchange=e=>all(a=>{a.preservesPitch=a.mozPreservesPitch=a.webkitPreservesPitch=e.target.checked});
+const ok=f=>f.type.startsWith('audio/')||/\.(mp3|ogg|oga|opus|wav|m4a|aac|flac)$/i.test(f.name);
+const addAll=fs=>[...fs].filter(ok).forEach(add);
+$('#file').onchange=e=>{addAll(e.target.files);e.target.value=''};
+$('#drop').onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();$('#file').click()}};
+document.ondragover=e=>e.preventDefault();
+document.ondrop=e=>{e.preventDefault();addAll(e.dataTransfer.files)};
+function nav(d,from){
+  if(!tracks.length)return;
+  let i=tracks.indexOf(from||cur);if(i<0)i=d>0?-1:tracks.length;
+  if(shufOn&&tracks.length>1){let j;do j=Math.random()*tracks.length|0;while(j===i);i=j}
+  else{i+=d;if(i>=tracks.length){if(from&&!repAll)return;i=0}if(i<0)i=tracks.length-1}
+  init();ctx.resume();tracks[i].a.currentTime=0;tracks[i].a.play();
+}
+function moveT(t,d){const i=tracks.indexOf(t),j=i+d;if(j<0||j>=tracks.length)return;tracks.splice(i,1);tracks.splice(j,0,t);tracks.forEach(x=>$('#list').append(x.el))}
+const applyRep=()=>tracks.forEach(t=>{t.lp.checked=repAll&&!seq;t.a.loop=t.lp.checked});
+const tog=(id,on,txt)=>{const b=$(id);b.setAttribute('aria-pressed',on);b.textContent=txt};
+const sm=(p,v)=>p.setTargetAtTime(v,ctx.currentTime,.02);
+const mvol=()=>{if(vol)sm(vol.gain,mm?0:+$('#mv').value)};
+$('#mode').onclick=()=>{
+  seq=!seq;document.body.classList.toggle('seq',seq);
+  tog('#mode',seq,seq?'☰ 재생 방식: 순서대로 재생':'▦ 재생 방식: 동시 재생');
+  if(seq){let f=0;tracks.forEach(t=>{if(!t.a.paused&&f++)t.a.pause()})}
+  applyRep();
+};
+$('#rep').onclick=()=>{repAll=!repAll;tog('#rep',repAll,'🔁 전체 반복 '+(repAll?'켜짐':'꺼짐'));applyRep()};
+$('#shuf').onclick=()=>{shufOn=!shufOn;tog('#shuf',shufOn,'🔀 셔플 '+(shufOn?'켜짐':'꺼짐'))};
+$('#prev').onclick=()=>nav(-1);
+$('#next').onclick=()=>nav(1);
+$('#clear').onclick=()=>[...tracks].forEach(t=>t.el.querySelector('.x').click());
+$('#mall').onclick=()=>{mm=!mm;tog('#mall',mm,mm?'🔊 음소거 해제':'🔇 전체 음소거');mvol()};
+[0.5,0.75,1,1.25,1.5,2].forEach(v=>{const b=document.createElement('button');b.className='mini';b.textContent=v+'x';b.onclick=()=>{const m=$('#ms');m.value=v;m.oninput({target:m})};$('#spp').append(b)});
+let tt;$('#timer').onchange=e=>{clearTimeout(tt);const m=+e.target.value;if(m)tt=setTimeout(()=>{all(a=>a.pause());e.target.value=0},m*60000)};
+setInterval(()=>tracks.forEach(t=>t.ab()),60);
+const yts=[],YO='https://www.youtube.com';
+const ytId=u=>{
+  let m=u.match(/(?:youtu\.be\/|[?&]v=|\/embed\/|\/shorts\/|\/live\/)([\w-]{11})/);
+  
+  if(!m)return null;
+  const t=u.match(/[?&#](?:t|start)=(\d+)/);
+  return{id:m[1],start:t?+t[1]:0};
+};
+const ycmd=(fr,fn,args)=>{try{fr.contentWindow.postMessage(JSON.stringify({event:'command',func:fn,args:args||[]}),YO)}catch(e){}};
+function addYt(v){
+  const el=document.createElement('article');el.className='card';
+  el.innerHTML=`<div class='top'><b class='name'></b><button class='x mini' aria-label='삭제'>✕</button></div>
+<div class='yw'><iframe allow='autoplay; encrypted-media; picture-in-picture; fullscreen' allowfullscreen referrerpolicy='strict-origin-when-cross-origin' title='YouTube 영상'></iframe></div>
+<div class='row'><button class='ypl mini'>▶ 재생</button><button class='yps mini'>⏸ 일시정지</button><button class='yrs mini'>⏮ 처음부터</button><label>볼륨 <input class='yv' type='range' min='0' max='100' value='100'></label><label>속도 <select class='ysp'><option>0.5</option><option>0.75</option><option selected>1</option><option>1.25</option><option>1.5</option><option>2</option></select></label><a class='yl' target='_blank' rel='noopener'>↗ 새 탭에서 열기</a><span class='yst hint'>불러오는 중…</span></div>`;
+  const q=s=>el.querySelector(s),fr=q('iframe'),st=q('.yst'),y={fr,st,ok:0};
+  q('.name').textContent='YouTube · '+v.id;
+  q('.yl').href='https://www.youtube.com/watch?v='+v.id+(v.start?'&t='+v.start:'');
+  const hs=()=>{try{fr.contentWindow.postMessage(JSON.stringify({event:'listening',id:1,channel:'widget'}),YO)}catch(e){}};
+  fr.onload=()=>{hs();let n=0;const iv=setInterval(()=>{if(y.ok||++n>6)clearInterval(iv);else hs()},1000)};
+  fr.src=YO+'/embed/'+v.id+'?enablejsapi=1&playsinline=1&rel=0'+(v.start?'&start='+v.start:'');
+  setTimeout(()=>{if(!y.ok)st.textContent='⚠ 응답이 없어요. “오류 153”이 보이면 YouTube가 이 페이지에서의 삽입을 거부한 거예요. PC 브라우저에서 열어 보거나 “새 탭에서 열기”를 써 주세요.'},10000);
+  q('.ypl').onclick=()=>ycmd(fr,'playVideo');
+  q('.yps').onclick=()=>ycmd(fr,'pauseVideo');
+  q('.yrs').onclick=()=>ycmd(fr,'seekTo',[v.start,true]);
+  q('.yv').oninput=e=>ycmd(fr,'setVolume',[+e.target.value]);
+  q('.ysp').onchange=e=>ycmd(fr,'setPlaybackRate',[+e.target.value]);
+  q('.x').onclick=()=>{fr.src='about:blank';el.remove();yts.splice(yts.indexOf(y),1)};
+  yts.push(y);$('#ylist').append(el);
+}
+window.addEventListener('message',e=>{
+  if(e.origin!==YO)return;
+  const y=yts.find(v=>v.fr.contentWindow===e.source);
+  if(y&&!y.ok){y.ok=1;y.st.textContent='연결됨'}
+});
+const ytAdd=()=>{
+  const i=$('#yurl');$('#ymsg').textContent='';
+  const raw=i.value.trim(),vs=/^[\w-]{11}$/.test(raw)?[{id:raw,start:0}]:raw.split(/[\s,"'<>]+/).map(ytId).filter(Boolean);
+  if(!vs.length&&raw)$('#ymsg').textContent='YouTube 링크로 보이지 않아요. 공유 링크나 퍼가기 코드를 그대로 붙여넣어 주세요.';
+  vs.forEach(addYt);
+  i.value='';
+};
+$('#yadd').onclick=ytAdd;
+$('#yurl').onkeydown=e=>{if(e.key==='Enter')ytAdd()};
+$('#yplay').onclick=()=>yts.forEach(y=>ycmd(y.fr,'playVideo'));
+$('#ypause').onclick=()=>yts.forEach(y=>ycmd(y.fr,'pauseVideo'));
+function mkFade(c,act,fade){
+  const n=act*c.sampleRate|0,fl=fade*c.sampleRate,b=c.createBuffer(1,n,c.sampleRate),p=b.getChannelData(0);
+  for(let i=0;i<n;i++)p[i]=i<fl?Math.sqrt(i/fl):i>=n-fl?Math.sqrt(1-(i-(n-fl))/fl):1;
+  return b;
+}
+function mkDelayBuf(c,act,up){
+  const n=act*c.sampleRate|0,b=c.createBuffer(1,n,c.sampleRate),p=b.getChannelData(0);
+  for(let i=0;i<n;i++)p[i]=up?(n-i)/n:i/n;
+  return b;
+}
+function Jungle(c){
+  const T=.1,F=.05,inp=c.createGain(),out=c.createGain();
+  const dn=mkDelayBuf(c,T,false),up=mkDelayBuf(c,T,true),fb=mkFade(c,T,F);
+  const bs=buf=>{const s=c.createBufferSource();s.buffer=buf;s.loop=true;return s};
+  const m1=bs(dn),m2=bs(dn),m3=bs(up),m4=bs(up),f1=bs(fb),f2=bs(fb);
+  const g1=c.createGain(),g2=c.createGain(),g3=c.createGain(),g4=c.createGain();
+  const mg1=c.createGain(),mg2=c.createGain(),d1=c.createDelay(),d2=c.createDelay();
+  const x1=c.createGain(),x2=c.createGain();
+  g3.gain.value=0;g4.gain.value=0;x1.gain.value=0;x2.gain.value=0;
+  m1.connect(g1);m2.connect(g2);m3.connect(g3);m4.connect(g4);
+  g1.connect(mg1);g2.connect(mg2);g3.connect(mg1);g4.connect(mg2);
+  mg1.connect(d1.delayTime);mg2.connect(d2.delayTime);
+  f1.connect(x1.gain);f2.connect(x2.gain);
+  inp.connect(d1);inp.connect(d2);d1.connect(x1);d2.connect(x2);x1.connect(out);x2.connect(out);
+  const t=c.currentTime+.05,t2=t+T-F;
+  m1.start(t);m2.start(t2);m3.start(t);m4.start(t2);f1.start(t);f2.start(t2);
+  return{input:inp,output:out,set(r){
+    const mult=2*(r-1),a=Math.abs(mult),upn=mult>0;
+    g1.gain.value=g2.gain.value=upn?0:1;
+    g3.gain.value=g4.gain.value=upn?1:0;
+    mg1.gain.setTargetAtTime(.5*T*a,c.currentTime,.01);
+    mg2.gain.setTargetAtTime(.5*T*a,c.currentTime,.01);
+  }};
+}
+function pair(r,sc,dec,unit,before){
+  const n=document.createElement('input');n.type='number';n.className='num';
+  n.min=r.min*sc;n.max=r.max*sc;n.step=1/Math.pow(10,dec);
+  const sync=()=>{n.value=+(r.value*sc).toFixed(dec)};
+  const old=r.oninput;
+  r.oninput=function(e){if(old)old.call(this,e);sync()};
+  n.onchange=()=>{
+    const v=parseFloat(n.value);if(isNaN(v)){sync();return}
+    r.value=Math.min(+n.max,Math.max(+n.min,v))/sc;r.oninput({target:r});
+  };
+  n.onkeydown=e=>{if(e.key==='Enter')n.blur()};
+  before?r.before(n):r.after(n);
+  if(unit){const u=document.createElement('span');u.className='hint';u.textContent=unit;n.after(u)}
+  sync();
+}
+const parseT=s=>{s=s.trim();if(!s)return null;const p=s.split(':').map(Number);return p.some(isNaN)?null:p.reduce((t,x)=>t*60+x,0)};
+pair($('#mv'),100,0,'%');pair($('#ms'),1,2,'배');eqIn.forEach(r=>pair(r,1,1,'',true));
+function mkEnv(sr){
+  const kL=1-Math.exp(-2*Math.PI*150/sr),kH=1-Math.exp(-2*Math.PI*2000/sr),lo=[],hi=[];let ly=0,hy=0;
+  return{lo,hi,push(x){
+    for(let b=0;b+128<=x.length;b+=128){
+      let el=0,eh=0;
+      for(let i=b;i<b+128;i++){ly+=kL*(x[i]-ly);hy+=kH*(x[i]-hy);const h=x[i]-hy;el+=ly*ly;eh+=h*h}
+      lo.push(el);hi.push(eh);
+    }
+  }};
+}
+function estBpm(lo,hi,fs){
+  const n=lo.length,mn=Math.round(fs*60/200),mx=Math.round(fs*60/60),LM=Math.min(8*mx,n>>1);
+  if(n<fs*8||LM<2*mx)return null;
+  const ac=e=>{
+    const o=new Float32Array(n),s=new Float32Array(n),r=new Float32Array(LM+1);
+    let pv=Math.log(1+1e3*e[0]),m=0;
+    for(let i=1;i<n;i++){const v=Math.log(1+1e3*e[i]);o[i]=Math.max(0,v-pv);pv=v}
+    for(let i=1;i<n-1;i++){s[i]=(o[i-1]+o[i]+o[i+1])/3;m+=s[i]}
+    m/=n;for(let i=0;i<n;i++)s[i]-=m;
+    for(let l=0;l<=LM;l++){let t=0;for(let i=0;i+l<n;i++)t+=s[i]*s[i+l];r[l]=t/(n-l)}
+    if(r[0]>0)for(let l=LM;l>=0;l--)r[l]/=r[0];else r.fill(0);
+    return r;
+  };
+  const a1=ac(lo),a2=ac(hi),r=a1.map((v,i)=>v+a2[i]);
+  let best=-1e9,Lb=0;
+  for(let l=mn;l<=mx;l++){
+    let sc=r[l];
+    for(let k=2;k<=4;k++)if(l*k<=LM)sc+=r[l*k]/k;
+    const w=Math.exp(-.5*Math.pow(Math.log2(60*fs/l/120)/.8,2));
+    if(sc*w>best){best=sc*w;Lb=l}
+  }
+  if(!Lb||best<=0)return null;
+  let num=0,den=0;
+  for(let k=1;k*Lb<=LM;k++){
+    const c=k*Lb,d=Math.max(2,Math.round(c*.04));
+    let bi=c,bv=-1e9;
+    for(let l=Math.max(1,c-d);l<=Math.min(LM-1,c+d);l++)if(r[l]>bv){bv=r[l];bi=l}
+    let p=bi;const A=r[bi-1],B=r[bi],C=r[bi+1],dn=A-2*B+C;
+    if(dn<0)p=bi+.5*(A-C)/dn;
+    const w=Math.max(bv,0);num+=w*k*p;den+=w*k*k;
+  }
+  return den>0?60*fs/(num/den):null;
+}
+function autoBpm(src,a,onProg,done){
+  const sr=ctx.sampleRate,sp=ctx.createScriptProcessor(1024,1,1),z=ctx.createGain(),env=mkEnv(sr),N=15;
+  let last=-1,fin=false;
+  z.gain.value=0;src.connect(sp);sp.connect(z);z.connect(ctx.destination);
+  const end=ok=>{
+    if(fin)return;fin=true;
+    sp.onaudioprocess=null;try{src.disconnect(sp)}catch(e){}sp.disconnect();z.disconnect();
+    const r=ok?estBpm(env.lo,env.hi,sr/128):null;
+    done(r?r/a.playbackRate:null);
+  };
+  sp.onaudioprocess=e=>{
+    if(a.paused)return;
+    env.push(e.inputBuffer.getChannelData(0));
+    const s=env.lo.length*128/sr|0;
+    if(s!==last){last=s;onProg(s,N)}
+    if(s>=N)end(true);
+  };
+  return{stop:()=>end(false)};
+}
+function syncTo(r){
+  const m=$('#bmsg'),b=+r.bp.value;
+  if(!(b>0)){m.textContent='먼저 기준이 될 곡의 BPM을 입력하거나 탭으로 재 주세요.';return}
+  const eff=b*r.a.playbackRate,out=[];
+  tracks.forEach(t=>{
+    if(t===r)return;
+    const nm=t.el.querySelector('.name').textContent,tb=+t.bp.value;
+    if(!(tb>0)){out.push(nm+': BPM이 없어 건너뜀');return}
+    const v=eff/tb,c=Math.min(3,Math.max(.25,v));
+    t.sp.value=c;t.sp.oninput();
+    out.push(nm+': '+(+c.toFixed(3))+'배속'+(c!==v?' (속도 한계라 가장 가까운 값)':''));
+  });
+  m.textContent='기준 '+eff.toFixed(1)+' BPM에 맞췄어요. '+(out.join(' / ')||'맞출 다른 곡이 없어요.');
+}
+document.onkeydown=e=>{
+  const tg=e.target.tagName;
+  if(tg==='SELECT'||tg==='INPUT'||tg==='SUMMARY'||(tg==='BUTTON'&&e.code==='Space')||e.ctrlKey||e.metaKey||e.altKey)return;
+  const k=e.key.toLowerCase(),m=$('#mv');let h=1;
+  if(e.code==='Space')$(tracks.some(t=>!t.a.paused)?'#pauseAll':'#playAll').click();
+  else if(k==='arrowleft'||k==='arrowright')tracks.forEach(t=>{t.a.currentTime=Math.max(0,t.a.currentTime+(k==='arrowleft'?-5:5))});
+  else if(k==='arrowup'||k==='arrowdown'){m.value=Math.min(1,Math.max(0,+m.value+(k==='arrowup'?.05:-.05)));m.oninput()}
+  else if(k==='m')$('#mall').click();
+  else if(k==='r')$('#rep').click();
+  else if((k==='n'||k==='p')&&seq)nav(k==='n'?1:-1);
+  else h=0;
+  if(h)e.preventDefault();
+};
+</script>
+</body>
+</html>
